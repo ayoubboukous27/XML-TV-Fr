@@ -1,0 +1,46 @@
+name: Build France EPG XML
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: mbstring, xml, curl
+          tools: composer
+
+      - name: Install dependencies
+        run: |
+          composer install --no-interaction --prefer-dist
+
+      - name: Generate XMLTV
+        run: |
+          php manager.php build
+
+      - name: Create Data folder
+        run: |
+          mkdir -p Data
+
+      - name: Move generated XML
+        run: |
+          find . -name "*.xml" -size +50k
+          mv output/*.xml Data/guide_fr.xml || true
+
+      - name: Commit & Push XML
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add Data/guide_fr.xml
+          git commit -m "Update France EPG XML" || echo "No changes"
+          git push
