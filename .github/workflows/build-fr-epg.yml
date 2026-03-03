@@ -1,33 +1,49 @@
-name: Generate EPG XMLTV
+name: Generate EPG XMLTV (NO LOGS)
 
 on:
-  schedule:
-    - cron: "0 4 * * *"   # كل يوم
   workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * *"
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+
+      # FAIL FAST – permission check (seconds)
+      - name: Permission check
+        run: |
+          echo test > .perm
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add .perm
+          git commit -m "perm check" >/dev/null 2>&1 || exit 1
+          git push >/dev/null 2>&1 || exit 1
+          rm .perm
+          git add .perm
+          git commit -m "cleanup" >/dev/null 2>&1 || true
+          git push >/dev/null 2>&1 || true
 
       - name: Build Docker image
-        run: docker build -t xmltvfr .
+        run: docker build -t xmltvfr . >/dev/null 2>&1
 
-      - name: Run XMLTV generator
+      - name: Run XMLTV generator (silent)
         run: |
           mkdir -p var/export
           docker run \
             -v ${{ github.workspace }}/var/export:/app/var/export \
             -v ${{ github.workspace }}/config:/app/config \
-            xmltvfr
+            xmltvfr >/dev/null 2>&1 || true
 
       - name: Commit EPG files
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add var/export || true
-          git commit -m "Update EPG XMLTV" || echo "No changes"
-          git push
+          git add var/export >/dev/null 2>&1 || true
+          git commit -m "Update EPG XMLTV" >/dev/null 2>&1 || true
+          git push >/dev/null 2>&1 || true
