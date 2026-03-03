@@ -1,53 +1,33 @@
-name: Build France EPG XML
+name: Generate EPG XMLTV
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: "0 4 * * *"   # يوميًا 04:00 UTC
+    - cron: "0 4 * * *"   # كل يوم
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: "8.2"
+      - name: Build Docker image
+        run: docker build -t xmltvfr .
 
-      - name: Install Composer dependencies
+      - name: Run XMLTV generator
         run: |
-          composer install --no-interaction --no-progress
+          mkdir -p var/export
+          docker run \
+            -v ${{ github.workspace }}/var/export:/app/var/export \
+            -v ${{ github.workspace }}/config:/app/config \
+            xmltvfr
 
-      - name: Generate EPG XML
-        run: |
-          php manager.php build
-
-      - name: Debug – list generated XML files
-        run: |
-          echo "=== XML files found ==="
-          find . -type f -name "*.xml"
-
-      - name: Prepare Data folder
-        run: |
-          mkdir -p Data
-
-      - name: Move XML to Data/guide_fr.xml
-        run: |
-          XML_FILE=$(find . -type f -name "*.xml" ! -path "./vendor/*" | head -n 1)
-          if [ -z "$XML_FILE" ]; then
-            echo "❌ No XML file generated"
-            exit 1
-          fi
-          mv "$XML_FILE" Data/guide_fr.xml
-
-      - name: Commit & Push XML
+      - name: Commit EPG files
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add Data/guide_fr.xml
-          git commit -m "Update France EPG XML" || echo "No changes to commit"
+          git add var/export || true
+          git commit -m "Update EPG XMLTV" || echo "No changes"
           git push
