@@ -1,41 +1,24 @@
-name: Build France EPG XML
-
-on:
-  workflow_dispatch:
-  schedule:
-    - cron: "0 3 * * *"
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: "8.2"
-          extensions: mbstring, xml, curl
-          tools: composer
-
-      - name: Install dependencies
-        run: |
-          composer install --no-interaction --prefer-dist
-
-      - name: Generate XMLTV
+- name: Generate XMLTV
         run: |
           php manager.php build
 
-      - name: Create Data folder
+      - name: Debug – list XML files
+        run: |
+          echo "=== XML files found ==="
+          find . -type f -name "*.xml"
+
+      - name: Prepare Data folder
         run: |
           mkdir -p Data
 
-      - name: Move generated XML
+      - name: Move XML to Data
         run: |
-          find . -name "*.xml" -size +50k
-          mv output/*.xml Data/guide_fr.xml || true
+          XML_FILE=$(find . -type f -name "*.xml" ! -path "./vendor/*" | head -n 1)
+          if [ -z "$XML_FILE" ]; then
+            echo "❌ No XML file generated"
+            exit 1
+          fi
+          mv "$XML_FILE" Data/guide_fr.xml
 
       - name: Commit & Push XML
         run: |
