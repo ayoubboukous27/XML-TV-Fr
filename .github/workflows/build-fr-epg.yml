@@ -1,4 +1,4 @@
-name: Generate EPG XMLTV (NO LOGS)
+name: Generate EPG XMLTV (STRICT)
 
 on:
   workflow_dispatch:
@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # FAIL FAST – permission check (seconds)
+      # Permission check (fail fast)
       - name: Permission check
         run: |
           echo test > .perm
@@ -32,18 +32,24 @@ jobs:
       - name: Build Docker image
         run: docker build -t xmltvfr . >/dev/null 2>&1
 
-      - name: Run XMLTV generator (silent)
+      - name: Run XMLTV generator (silent but strict)
         run: |
           mkdir -p var/export
           docker run \
             -v ${{ github.workspace }}/var/export:/app/var/export \
             -v ${{ github.workspace }}/config:/app/config \
-            xmltvfr >/dev/null 2>&1 || true
+            xmltvfr >/dev/null 2>&1
+
+          # 🔴 HARD CHECK — no XML = FAIL
+          if [ ! -f var/export/xmltv.xml ]; then
+            echo "ERROR: xmltv.xml NOT GENERATED"
+            exit 1
+          fi
 
       - name: Commit EPG files
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add var/export >/dev/null 2>&1 || true
-          git commit -m "Update EPG XMLTV" >/dev/null 2>&1 || true
-          git push >/dev/null 2>&1 || true
+          git add var/export
+          git commit -m "Update EPG XMLTV"
+          git push
