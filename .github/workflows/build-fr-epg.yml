@@ -27,59 +27,35 @@ jobs:
           rm .perm
           git add .perm
           git commit -m "cleanup" >/dev/null 2>&1 || true
-          git push >/dev/null 2>&1 || true
+          git push >/dev/null 2>&1 || true >/dev/null 2>&1
 
       - name: Build Docker image
-        run: docker build -t xmltvfr .
+        run: docker build -t xmltvfr . >/dev/null 2>&1
 
       - name: Run XMLTV generator
         run: |
-          # إنشاء المجلدات المطلوبة
-          mkdir -p data
-          mkdir -p config
+          mkdir -p data >/dev/null 2>&1
+          mkdir -p config >/dev/null 2>&1
           
-          echo "🔄 بدء سحب EPG للقنوات..."
-          
-          # تشغيل الـ EPG وتصفية المخرجات لعرض أسماء القنوات فقط
           docker run \
             -v ${{ github.workspace }}/data:/app/data \
             -v ${{ github.workspace }}/config:/app/config \
-            xmltvfr 2>&1 | while IFS= read -r line; do
-              # عرض السطر فقط إذا كان يحتوي على اسم قناة فرنسية وعلامة اكتمال
-              if echo "$line" | grep -qE "[a-zA-Z]+\.fr.*(OK|✅|terminé|fin|complete)"; then
-                echo "✅ $line"
-              fi
-            done
-          
-          echo "✅ اكتمل سحب جميع القنوات"
-          
-          # التحقق من وجود guide.xml
+            xmltvfr >/dev/null 2>&1
+
           if [ ! -f data/guide.xml ]; then
-            echo "❌ ERROR: guide.xml NOT GENERATED in data/ directory"
-            echo "محتويات مجلد data/:"
-            ls -la data/
             exit 1
-          else
-            echo "✅ guide.xml generated successfully"
-            echo "حجم الملف:"
-            du -h data/guide.xml
-            # نسخ احتياطي
-            cp data/guide.xml data/xmltv.xml
           fi
 
       - name: Commit EPG files
         run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
+          git config user.name "github-actions" >/dev/null 2>&1
+          git config user.email "github-actions@github.com" >/dev/null 2>&1
           
-          # إضافة الملفات إلى git
-          git add data/
+          git add data/ >/dev/null 2>&1
           
-          # التحقق من وجود تغييرات قبل الـ commit
-          if git diff --staged --quiet; then
-            echo "ℹ️ لا توجد تغييرات جديدة"
+          if git diff --staged --quiet >/dev/null 2>&1; then
+            echo "No changes" >/dev/null 2>&1
           else
-            git commit -m "Update EPG XMLTV [skip ci]"
-            git push
-            echo "✅ تم رفع التحديثات إلى GitHub"
+            git commit -m "Update EPG XMLTV [skip ci]" >/dev/null 2>&1
+            git push >/dev/null 2>&1
           fi
