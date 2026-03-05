@@ -27,21 +27,30 @@ jobs:
           rm .perm
           git add .perm
           git commit -m "cleanup" >/dev/null 2>&1 || true
-          git push >/dev/null 2>&1 || true >/dev/null 2>&1
+          git push >/dev/null 2>&1 || true
 
       - name: Build Docker image
         run: docker build -t xmltvfr . >/dev/null 2>&1
 
       - name: Run XMLTV generator
         run: |
-          mkdir -p data >/dev/null 2>&1
-          mkdir -p config >/dev/null 2>&1
+          # إنشاء المجلدات
+          mkdir -p data 2>/dev/null || true
+          mkdir -p config 2>/dev/null || true
           
+          # تشغيل الحاوية واستخراج أسماء القنوات فقط
           docker run \
             -v ${{ github.workspace }}/data:/app/data \
             -v ${{ github.workspace }}/config:/app/config \
-            xmltvfr >/dev/null 2>&1
-
+            xmltvfr 2>&1 | while IFS= read -r line; do
+              # استخراج اسم القناة فقط (أول كلمة قبل .fr)
+              if echo "$line" | grep -qE '([a-zA-Z0-9]+)\.fr'; then
+                channel=$(echo "$line" | grep -oE '[a-zA-Z0-9]+\.fr' | cut -d'.' -f1)
+                echo "$channel"
+              fi
+            done
+          
+          # التحقق من وجود الملف
           if [ ! -f data/guide.xml ]; then
             exit 1
           fi
@@ -53,9 +62,7 @@ jobs:
           
           git add data/ >/dev/null 2>&1
           
-          if git diff --staged --quiet >/dev/null 2>&1; then
-            echo "No changes" >/dev/null 2>&1
-          else
+          if ! git diff --staged --quiet >/dev/null 2>&1; then
             git commit -m "Update EPG XMLTV [skip ci]" >/dev/null 2>&1
             git push >/dev/null 2>&1
           fi
